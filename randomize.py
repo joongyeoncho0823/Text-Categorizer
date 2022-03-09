@@ -1,8 +1,8 @@
 import random
 
-lines = open('c3_test.labels').readlines()
+lines = open('c2_test.labels').readlines()
 
-out = open('c3_test.list', 'w')
+out = open('c2_test.list', 'w')
 for line in lines:
     newline = line.rsplit(' ', 1)[0]
     print(newline)

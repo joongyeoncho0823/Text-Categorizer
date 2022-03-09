@@ -68,6 +68,7 @@ for line in lines:
     inverted_cat_check = defaultdict(lambda: False)
 
     for token in stemmed_tokens:
+        # May not need this
         if not inverted_index_check[token]:
             inverted_index_count[token] += 1
             inverted_index_check[token] = True
@@ -85,12 +86,22 @@ tf_idf = dict()
 
 categories = category_document_count.keys()
 
-for token in tokens:
-    tf_idf[token] = token_count[token] * \
-        log(num_train_files /
-            inverted_index_count[token], 10)
+# for token in tokens:
+#     tf_idf[token] = token_count[token] * \
+#         log(num_train_files /
+#             inverted_index_count[token], 10)
 
-print(category_document_count)
+tf_idf_cat = dict()
+normalization_constant = defaultdict(lambda: 0, {})
+for token in tokens:
+    for category in categories:
+        tf_idf_cat[(category, token)] = inverted_cat_count[(
+            category, token)] * log(num_train_files / inverted_index_count[token], 10)
+        normalization_constant[category] += tf_idf_cat[(category, token)]
+
+for token in tokens:
+    for category in categories:
+        tf_idf_cat[(category, token)] /= normalization_constant[category]
 
 # Testing
 
@@ -127,39 +138,39 @@ for line in test_lines:
     # dictionary of likelihoods of document being in each category
     # Key: Category
     test_category_prob = defaultdict(lambda: 0, {})
+
+    test_category_prob_cat = defaultdict(lambda: 0, {})
     for token in stemmed_tokens:  # switched to wnl_tokens from stemmed_tokens
         # Ignore numbers
         if token.isdigit() == True:
             continue
         # Ignore punctuations
         elif token in list(string.punctuation) or token.find("'") != -1:
-            print(token)
             continue
         else:
-            if token not in stops:
-                if token in test_token_count:
-                    test_token_count[token] += 1
-                else:
-                    test_token_count[token] = 1
+            for category in categories:
+                if token not in stops:
+                    if token in test_token_count:
+                        test_token_count[token] += 1
+                    else:
+                        test_token_count[token] = 1
 
     num_tokens = sum(test_token_count.values())
 
     for category in categories:
-
-        category_prob = category_document_count[category] / num_train_files
         for token, count in test_token_count.items():
             if (category, token) in category_token_count:
-                test_category_prob[category] += (
-                    tf_idf[token] * category_token_count[(category, token)] * count) / (cat_tok_count[category] * num_tokens)
+                test_category_prob[category] += tf_idf_cat[(
+                    category, token)] * count * log(num_train_files / inverted_index_count[token], 10)**2
 
-    decision = max(test_category_prob, key=test_category_prob.get)
-    str = line.strip() + ' ' + decision + '\n'
+    prediction = max(test_category_prob, key=test_category_prob.get)
+    str = line.strip() + ' ' + prediction + '\n'
     predictions.append(str)
 
 
-test_output = input("Enter name of output file: ")
+output = input("Name of output file: ")
 
-output_file = open(test_output, 'w')
+output_file = open(output, 'w')
 for line in predictions:
     output_file.write(line)
 
