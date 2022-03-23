@@ -22,21 +22,9 @@ train_file = open(train_file_name)
 lines = train_file.readlines()
 num_train_files = len(lines)
 
-# store the number of occurrences of a specific token in each category
-# Key: (category, token)
-category_token_count = defaultdict(lambda: 0, {})
-
 # store the number of documents for each category
 # Key: Category
 category_document_count = defaultdict(lambda: 0, {})
-
-# store the number of tokens for each category
-# Key: Category
-cat_tok_count = defaultdict(lambda: 0, {})
-
-# store the total number of occurrences of each token for every category
-# Key: Token
-token_count = defaultdict(lambda: 0, {})
 
 # store count of documents that contain a specific token
 # Key: Token
@@ -75,22 +63,15 @@ for line in lines:
         if not inverted_cat_check[(category, token)]:
             inverted_cat_count[(category, token)] += 1
             inverted_cat_check[(category, token)] = True
-        category_token_count[(category, token)] += 1
-        cat_tok_count[category] += 1
-        token_count[token] += 1
 
 
-tokens = token_count.keys()
+tokens = inverted_index_count.keys()
 
 tf_idf = dict()
 
 categories = category_document_count.keys()
 
-# for token in tokens:
-#     tf_idf[token] = token_count[token] * \
-#         log(num_train_files /
-#             inverted_index_count[token], 10)
-
+# Calculate TF*IDF
 tf_idf_cat = dict()
 normalization_constant = defaultdict(lambda: 0, {})
 for token in tokens:
@@ -99,6 +80,7 @@ for token in tokens:
             category, token)] * log(num_train_files / inverted_index_count[token], 10)
         normalization_constant[category] += tf_idf_cat[(category, token)]
 
+# Normalize TF*IDF
 for token in tokens:
     for category in categories:
         tf_idf_cat[(category, token)] /= normalization_constant[category]
@@ -112,7 +94,9 @@ train_file_name = input("Name of file containing list of testing examples: ")
 test_list = open(train_file_name)
 test_lines = test_list.readlines()
 
-count_docs = 0
+# stop list
+stops = set(stopwords.words('english'))
+
 # iterate through each article
 for line in test_lines:
 
@@ -127,9 +111,6 @@ for line in test_lines:
     stemmer = PorterStemmer()
     stemmed_tokens = [stemmer.stem(token) for token in test_tokenized]
 
-    # stop list
-    stops = set(stopwords.words('english'))
-
     # dictionary of tokens in each document
     # Key: Token
     # Value: Count
@@ -139,8 +120,7 @@ for line in test_lines:
     # Key: Category
     test_category_prob = defaultdict(lambda: 0, {})
 
-    test_category_prob_cat = defaultdict(lambda: 0, {})
-    for token in stemmed_tokens:  # switched to wnl_tokens from stemmed_tokens
+    for token in stemmed_tokens:
         # Ignore numbers
         if token.isdigit() == True:
             continue
@@ -157,12 +137,14 @@ for line in test_lines:
 
     num_tokens = sum(test_token_count.values())
 
+    # Calculate max likelhihood category
     for category in categories:
         for token, count in test_token_count.items():
-            if (category, token) in category_token_count:
+            if (category, token) in inverted_cat_count:
                 test_category_prob[category] += tf_idf_cat[(
                     category, token)] * count * log(num_train_files / inverted_index_count[token], 10)**2
 
+    # Store prediction for this article
     prediction = max(test_category_prob, key=test_category_prob.get)
     str = line.strip() + ' ' + prediction + '\n'
     predictions.append(str)
